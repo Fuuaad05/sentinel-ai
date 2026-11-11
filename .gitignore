@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# AWS SAM
+.aws-sam/
+samconfig.toml
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials
+
+# Editor and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Archives
+*.zip

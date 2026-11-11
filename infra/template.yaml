@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sentinel AI-agent security concept waitlist API
+Parameters:
+  SenderEmail:
+    Type: String
+    Description: Verified SES sender email in the deployment region
+  AllowedOrigin:
+    Type: String
+    Description: Exact HTTPS origin for the frontend (no trailing slash)
+    AllowedPattern: '^https://[^/]+$'
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 128
+Resources:
+  WaitlistTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: subscriber_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: subscriber_id
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+  WaitlistApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref AllowedOrigin]
+        AllowMethods: [POST]
+        AllowHeaders: [content-type]
+        MaxAge: 600
+  WaitlistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handler.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref WaitlistTable
+          SES_SENDER: !Ref SenderEmail
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref WaitlistTable
+        - Statement:
+            - Effect: Allow
+              Action: ses:SendEmail
+              Resource: !Sub 'arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${SenderEmail}'
+      Events:
+        Signup:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WaitlistApi
+            Path: /join
+            Method: POST
+Outputs:
+  SignupEndpoint:
+    Description: Set this URL in site/config.js
+    Value: !Sub 'https://${WaitlistApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/join'
+  TableName:
+    Value: !Ref WaitlistTable
